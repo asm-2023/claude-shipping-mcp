@@ -138,6 +138,7 @@ module.exports = async (req, res) => {
   }
 
   const body = req.body || {};
+  console.log(`[shipping-mcp] ${req.method} method=${body.method} id=${body.id}`);
 
   if (!authorized) {
     res.status(200).json({
@@ -178,7 +179,23 @@ module.exports = async (req, res) => {
       return;
     }
 
-    res.status(400).json({ error: "unsupported method" });
+    // Notifications (e.g. "notifications/initialized") have no "id" and
+    // expect no response body at all per JSON-RPC spec.
+    if (body.method && body.method.startsWith("notifications/")) {
+      res.status(202).end();
+      return;
+    }
+
+    // Some MCP clients probe for optional capabilities (resources/list,
+    // prompts/list, ping, etc.) that this server doesn't implement. Respond
+    // with an empty-but-valid result rather than a hard error — a 400 here
+    // can cause the client to treat the whole connection as broken, even
+    // though tools/list works fine.
+    res.json({
+      jsonrpc: "2.0",
+      id: body.id,
+      result: {},
+    });
   } catch (err) {
     res.status(500).json({
       jsonrpc: "2.0",
