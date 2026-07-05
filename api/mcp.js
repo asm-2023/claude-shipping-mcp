@@ -115,10 +115,13 @@ module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   // Token auth via query param, same pattern as the Meta Ads connector.
-  if (req.query.token !== process.env.MCP_ACCESS_TOKEN) {
-    res.status(401).json({ error: "unauthorized" });
-    return;
-  }
+  // IMPORTANT: we deliberately never return HTTP 401 here. Claude's custom
+  // connector UI treats a 401 as a signal that the server requires OAuth and
+  // tries (and fails) to negotiate a sign-in handshake, since the UI has no
+  // field for a plain query-param/Bearer token — only OAuth Client ID/Secret.
+  // So on a bad token we still respond 200, just with an error payload, and
+  // never execute the tool.
+  const authorized = req.query.token === process.env.MCP_ACCESS_TOKEN;
 
   // Some MCP clients probe with a plain GET before POSTing. Respond with a
   // simple health payload instead of falling through to "unsupported method",
@@ -129,6 +132,15 @@ module.exports = async (req, res) => {
   }
 
   const body = req.body || {};
+
+  if (!authorized) {
+    res.status(200).json({
+      jsonrpc: "2.0",
+      id: body.id,
+      error: { code: -32001, message: "unauthorized: bad or missing token" },
+    });
+    return;
+  }
 
   try {
     if (body.method === "tools/list") {
