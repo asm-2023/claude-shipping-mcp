@@ -1,0 +1,12 @@
+{
+  "name": "shipping-cost-mcp",
+  "version": "0.1.0",
+  "description": "MCP connector exposing Shiprocket + Delhivery shipping cost rollups (Yesterday / Last 7 / MTD / Last 30) to Claude",
+  "main": "api/mcp.js",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
