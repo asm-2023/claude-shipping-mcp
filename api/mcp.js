@@ -104,9 +104,27 @@ async function callTool(name, args) {
 }
 
 module.exports = async (req, res) => {
+  // CORS preflight — some clients send this before the real request.
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.status(204).end();
+    return;
+  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
   // Token auth via query param, same pattern as the Meta Ads connector.
   if (req.query.token !== process.env.MCP_ACCESS_TOKEN) {
     res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+
+  // Some MCP clients probe with a plain GET before POSTing. Respond with a
+  // simple health payload instead of falling through to "unsupported method",
+  // which some clients read as "not a valid MCP server" and give up.
+  if (req.method === "GET") {
+    res.status(200).json({ status: "ok", server: "shipping-cost-mcp" });
     return;
   }
 
