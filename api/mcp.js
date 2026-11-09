@@ -172,6 +172,76 @@ const TOOLS = [
     },
   },
   {
+    name: "delhivery_find_shipments",
+    description:
+      "List every shipment booked on this Delhivery account in a window of waybills, without knowing the AWBs or the reference they were booked under (forward shipments and reverse pickups). Delhivery has no 'list shipments' API, so this scans sequential AWBs starting at from_waybill (any recent AWB from this account). direction 'forward' finds newer bookings and stops after stop_after_misses empty AWBs; 'backward' looks at older ones. Optional filters: order_contains, destination_contains, status (e.g. 'Manifested', 'Not Picked', 'Pending', or status_type 'UD'/'DL'/'PP'), reverse_only, exclude_delivered. Tracking data has no customer name or phone.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from_waybill: { type: "string", description: "Any valid recent AWB from this account" },
+        direction: { type: "string", enum: ["forward", "backward"] },
+        count: { type: "number", description: "How many AWBs to scan (max 400, default 100)" },
+        stop_after_misses: { type: "number", description: "Forward scans stop after this many empty AWBs in a row (default 20)" },
+        order_contains: { type: "string" },
+        destination_contains: { type: "string" },
+        status: { type: "string" },
+        reverse_only: { type: "boolean" },
+        exclude_delivered: { type: "boolean" },
+      },
+      required: ["from_waybill"],
+    },
+  },
+  {
+    name: "delhivery_edit_shipment",
+    description:
+      "Edit a booked Delhivery shipment by waybill: customer name, address, phone, product description, weight, dimensions, payment mode (Prepaid/COD) or COD amount. Delhivery only accepts edits before the shipment is in transit (payment mode, weight, dimensions) or before it is out for delivery (address, phone). Only pass the fields you want to change. Without confirm: true it is a DRY RUN; show it to the user and get their go-ahead first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        waybill: { type: "string" },
+        name: { type: "string" },
+        address: { type: "string" },
+        phone: { type: "string" },
+        products_desc: { type: "string" },
+        weight_grams: { type: "number" },
+        length_cm: { type: "number" },
+        width_cm: { type: "number" },
+        height_cm: { type: "number" },
+        payment_mode: { type: "string", enum: ["Prepaid", "COD"] },
+        cod_amount: { type: "number" },
+        confirm: { type: "boolean" },
+      },
+      required: ["waybill"],
+    },
+  },
+  {
+    name: "delhivery_ndr_action",
+    description:
+      "Act on failed deliveries (NDR: consignee unavailable, address issue, etc.). For each waybill choose action: 'RE-ATTEMPT' (try delivery again), 'DEFER_DLV' (deliver on deferred_date, YYYY-MM-DD) or 'EDIT_DETAILS' (correct name/address/phone, then Delhivery re-attempts). Delhivery allows up to 3 attempts before RTO. Processed asynchronously; re-track afterwards. Without confirm: true it is a DRY RUN; show it to the user and get their go-ahead first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        actions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              waybill: { type: "string" },
+              action: { type: "string", enum: ["RE-ATTEMPT", "DEFER_DLV", "EDIT_DETAILS"] },
+              deferred_date: { type: "string", description: "YYYY-MM-DD, for DEFER_DLV" },
+              name: { type: "string" },
+              address: { type: "string" },
+              phone: { type: "string" },
+            },
+            required: ["waybill", "action"],
+          },
+        },
+        confirm: { type: "boolean" },
+      },
+      required: ["actions"],
+    },
+  },
+  {
     name: "delhivery_cancel_shipment",
     description:
       "Cancel a Delhivery shipment by waybill (only works before it is picked up). Without confirm: true it is a dry run; get the user's go-ahead first.",
@@ -254,6 +324,12 @@ async function callTool(name, args) {
       return dlops.createShipments(args);
     case "delhivery_create_reverse_pickups":
       return dlops.createReversePickups(args);
+    case "delhivery_find_shipments":
+      return dlops.findShipments(args);
+    case "delhivery_edit_shipment":
+      return dlops.editShipment(args);
+    case "delhivery_ndr_action":
+      return dlops.ndrAction(args);
     case "delhivery_cancel_shipment":
       return dlops.cancelShipment(args);
     case "delhivery_schedule_pickup":
@@ -347,7 +423,7 @@ module.exports = async (req, res) => {
         id: body.id,
         result: {
           protocolVersion: "2024-11-05",
-          serverInfo: { name: "shipping-cost-mcp", version: "0.3.0" },
+          serverInfo: { name: "shipping-cost-mcp", version: "0.4.0" },
           capabilities: { tools: {} },
         },
       });
