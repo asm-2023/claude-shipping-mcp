@@ -97,11 +97,11 @@ const TOOLS = [
   {
     name: "delhivery_create_shipments",
     description:
-      "Book (manifest) one or more Delhivery forward shipments from a single pickup location; Delhivery assigns the waybills. pickup_location must exactly match a pickup location name registered in Delhivery (e.g. 'Mumbai Residence' or 'Pune Residence'). Without confirm: true this is a DRY RUN that returns the exact payload and books nothing; always show the dry run to the user and get their go-ahead before calling again with confirm: true. weight_grams is the packed weight; dimensions in cm.",
+      "Book (manifest) one or more Delhivery forward shipments from a single pickup location; Delhivery assigns the waybills. pickup_location must exactly match a pickup location name registered in Delhivery (e.g. 'Mumbai Residence' or 'Pune Residence'); if omitted it defaults to DELHIVERY_PICKUP_LOCATION or 'Mumbai Residence'. Without confirm: true this is a DRY RUN that returns the exact payload and books nothing; always show the dry run to the user and get their go-ahead before calling again with confirm: true. weight_grams is the packed weight; dimensions in cm.",
     inputSchema: {
       type: "object",
       properties: {
-        pickup_location: { type: "string" },
+        pickup_location: { type: "string", description: "Defaults to 'Mumbai Residence'" },
         confirm: { type: "boolean" },
         shipments: {
           type: "array",
@@ -131,7 +131,44 @@ const TOOLS = [
           },
         },
       },
-      required: ["pickup_location", "shipments"],
+      required: ["shipments"],
+    },
+  },
+  {
+    name: "delhivery_create_reverse_pickups",
+    description:
+      "Book Delhivery reverse pickups (RVP): Delhivery collects a parcel from the CUSTOMER's address and returns it to pickup_location (your warehouse, default 'Mumbai Residence'). Use for returns and exchange pickups. name/address/pin/phone are the customer's details. Use the order number with a suffix as the reference (e.g. 'WK1631-R') so it can be tracked. Without confirm: true this is a DRY RUN that returns the exact payload and books nothing; always show the dry run to the user and get their go-ahead before calling again with confirm: true.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pickup_location: { type: "string", description: "Warehouse the parcel returns to. Defaults to 'Mumbai Residence'" },
+        confirm: { type: "boolean" },
+        shipments: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              order: { type: "string", description: "Reference, e.g. 'WK1631-R'" },
+              name: { type: "string", description: "Customer name" },
+              address: { type: "string", description: "Customer address to collect from" },
+              pin: { type: "string" },
+              city: { type: "string" },
+              state: { type: "string" },
+              phone: { type: "string" },
+              total_amount: { type: "number", description: "Declared value of the item being returned" },
+              products_desc: { type: "string" },
+              quantity: { type: "number" },
+              weight_grams: { type: "number" },
+              length_cm: { type: "number" },
+              width_cm: { type: "number" },
+              height_cm: { type: "number" },
+              hsn_code: { type: "string" },
+            },
+            required: ["order", "name", "address", "pin", "phone", "weight_grams"],
+          },
+        },
+      },
+      required: ["shipments"],
     },
   },
   {
@@ -151,13 +188,13 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        pickup_location: { type: "string" },
+        pickup_location: { type: "string", description: "Defaults to 'Mumbai Residence'" },
         pickup_date: { type: "string", description: "YYYY-MM-DD" },
         pickup_time: { type: "string", description: "HH:MM, default 14:00" },
         expected_package_count: { type: "number" },
         confirm: { type: "boolean" },
       },
-      required: ["pickup_location", "pickup_date", "expected_package_count"],
+      required: ["pickup_date", "expected_package_count"],
     },
   },
   {
@@ -215,6 +252,8 @@ async function callTool(name, args) {
       return dlops.checkPincodes(args);
     case "delhivery_create_shipments":
       return dlops.createShipments(args);
+    case "delhivery_create_reverse_pickups":
+      return dlops.createReversePickups(args);
     case "delhivery_cancel_shipment":
       return dlops.cancelShipment(args);
     case "delhivery_schedule_pickup":
@@ -308,7 +347,7 @@ module.exports = async (req, res) => {
         id: body.id,
         result: {
           protocolVersion: "2024-11-05",
-          serverInfo: { name: "shipping-cost-mcp", version: "0.2.0" },
+          serverInfo: { name: "shipping-cost-mcp", version: "0.3.0" },
           capabilities: { tools: {} },
         },
       });
