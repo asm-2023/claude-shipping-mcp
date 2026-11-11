@@ -174,7 +174,7 @@ const TOOLS = [
   {
     name: "delhivery_find_shipments",
     description:
-      "List every shipment booked on this Delhivery account in a window of waybills, without knowing the AWBs or the reference they were booked under (forward shipments and reverse pickups). Delhivery has no 'list shipments' API, so this scans sequential AWBs starting at from_waybill (any recent AWB from this account). direction 'forward' finds newer bookings and stops after stop_after_misses empty AWBs; 'backward' looks at older ones. Optional filters: order_contains, destination_contains, status (e.g. 'Manifested', 'Not Picked', 'Pending', or status_type 'UD'/'DL'/'PP'), reverse_only, exclude_delivered. Tracking data has no customer name or phone.",
+      "List every shipment booked on this Delhivery account in a window of waybills, without knowing the AWBs or the reference they were booked under (forward shipments and reverse pickups). Delhivery has no 'list shipments' API, so this scans sequential AWBs starting at from_waybill (any recent AWB from this account). direction 'forward' finds newer bookings and stops after stop_after_misses empty AWBs; 'backward' looks at older ones. Optional filters: name_contains, phone_contains (customer name/phone from the consignee record), order_contains, destination_contains, status (e.g. 'Manifested', 'Not Picked', 'Pending', or status_type 'UD'/'DL'/'PP'), reverse_only, exclude_delivered. Results include customer_name, customer_phone and customer_pin.",
     inputSchema: {
       type: "object",
       properties: {
@@ -187,6 +187,8 @@ const TOOLS = [
         status: { type: "string" },
         reverse_only: { type: "boolean" },
         exclude_delivered: { type: "boolean" },
+        name_contains: { type: "string", description: "Match customer (consignee) name" },
+        phone_contains: { type: "string", description: "Match customer phone (last 10 digits compared)" },
       },
       required: ["from_waybill"],
     },
